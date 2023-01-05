@@ -1,0 +1,13 @@
+{
+  "name": "Racelogic CAN decoder",
+  "apiVersion": "1.0.0",
+  "author": "Drihan du Preez",
+  "version": "0.0.1",
+  "description": "Concatenate and convert CAN messages into numerical values",
+  "extensions": {
+    "Racelogic CAN decoder": {
+      "type": "HighLevelAnalyzer",
+      "entryPoint": "HighLevelAnalyzer.Hla"
+    }
+  }
+}
