@@ -33,7 +33,16 @@ class Hla(HighLevelAnalyzer):
                 'input_type': hex(self.id),
             })
         # Actual data conversion
-        if frame.type == "data_field":
+        if frame.type == "can_error":
+            print("error frame")
+            self.id = None
+            data_list = []
+            frame_start_time = []
+            frame_end_time = []
+            return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
+                'error': 'Error!'
+                })
+        elif frame.type == "data_field":
             data_byte = hex(frame.data["data"][0])
             data_byte = data_byte[2:]
             if len(data_byte) == 1:
@@ -361,9 +370,11 @@ class Hla(HighLevelAnalyzer):
                             'input_type': str(round(speed_robot_nav, 3)) + "km/h",
                         })
             else:
+                self.id = None
                 data_list = []
                 frame_start_time = []
                 frame_end_time = []
-                return AnalyzerFrame('message_information', last_start_time, last_end_time, {
+                print(self.id, data_list, frame_start_time, frame_end_time)
+                return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
                     'error': 'Error!'
                 })
