@@ -369,6 +369,44 @@ class Hla(HighLevelAnalyzer):
                             'info': 'Speed Robot Nav',
                             'input_type': str(round(speed_robot_nav, 3)) + "km/h",
                         })
+            elif self.id == 788:
+                if len(data_list) == 2:
+                    hex_join = "".join(data_list[0:2])
+                    converted_hex = int(hex_join, 16)
+                    slip_angle_COG = converted_hex * 0.01
+                    return AnalyzerFrame('message_information', frame_start_time[0], frame_end_time[1], {
+                            'info': 'Slip Angle COG',
+                            'input_type': str(round(slip_angle_COG, 3)) + "°",
+                        })
+                elif len(data_list) == 3:
+                    hex_join = "".join(data_list[0:2])
+                    converted_hex = int(hex_join, 16)
+                    sats_robot_nav = converted_hex
+                    return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
+                            'info': 'Sats Robot Nav',
+                            'input_type': str(sats_robot_nav),
+                        })
+                elif len(data_list) == 6:
+                    hex_join = "".join(data_list[3:6])
+                    converted_hex = int(hex_join, 16)
+                    tsm_robot_nav = datetime.timedelta(seconds=(int(converted_hex) * 0.01))
+                    return AnalyzerFrame('message_information', frame_start_time[3], frame_end_time[5], {
+                            'info': 'UTC robot nav',
+                            'input_type': str(tsm_robot_nav),
+                        })
+                elif len(data_list) == 8:
+                    hex_join = "".join(data_list[6:])
+                    converted_hex = int(hex_join, 16)
+                    robot_head_nav = converted_hex * 0.01
+                    last_start_time = frame_start_time[6]
+                    last_end_time = frame_end_time[7]
+                    data_list = []
+                    frame_start_time = []
+                    frame_end_time = []
+                    return AnalyzerFrame('message_information', last_start_time, last_end_time, {
+                            'info': 'RobotHead',
+                            'input_type': str(round(robot_head_nav, 3)) + "°",
+                        })
             else:
                 self.id = None
                 data_list = []
