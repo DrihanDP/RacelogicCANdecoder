@@ -63,8 +63,6 @@ class Hla(HighLevelAnalyzer):
                     hex_join = "".join(data_list[1:4])
                     converted_hex = int(hex_join, 16)
                     UTCTime = datetime.timedelta(seconds=(int(converted_hex) * 0.01))
-                    print(str(frame.start_time[11:]))
-                    print(abs(frame.start_time[11:] - frame.end_time[11:]))
                     return AnalyzerFrame('message_information', frame_start_time[1], frame_end_time[3], {
                             'info': 'UTC',
                             'input_type': str(UTCTime),
