@@ -63,6 +63,8 @@ class Hla(HighLevelAnalyzer):
                     hex_join = "".join(data_list[1:4])
                     converted_hex = int(hex_join, 16)
                     UTCTime = datetime.timedelta(seconds=(int(converted_hex) * 0.01))
+                    print(str(frame.start_time[11:]))
+                    print(abs(frame.start_time[11:] - frame.end_time[11:]))
                     return AnalyzerFrame('message_information', frame_start_time[1], frame_end_time[3], {
                             'info': 'UTC',
                             'input_type': str(UTCTime),
@@ -406,6 +408,73 @@ class Hla(HighLevelAnalyzer):
                     return AnalyzerFrame('message_information', last_start_time, last_end_time, {
                             'info': 'RobotHead',
                             'input_type': str(round(robot_head_nav, 3)) + "°",
+                        })
+            elif self.id == 809:
+                if len(data_list) == 4:
+                    hex_join = "".join(data_list[0:4])
+                    converted_hex = int(hex_join, 16)
+                    x_pos = converted_hex
+                    return AnalyzerFrame('message_information', frame_start_time[0], frame_end_time[3], {
+                            'info': 'X position',
+                            'input_type': str(round(x_pos, 3)) + "m",
+                        })
+                elif len(data_list) == 8:
+                    hex_join = "".join(data_list[4:])
+                    converted_hex = int(hex_join, 16)
+                    y_pos = converted_hex
+                    last_start_time = frame_start_time[4]
+                    last_end_time = frame_end_time[7]
+                    data_list = []
+                    frame_start_time = []
+                    frame_end_time = []
+                    return AnalyzerFrame('message_information', last_start_time, last_end_time, {
+                            'info': 'Y position',
+                            'input_type': str(round(y_pos, 3)) + "m",
+                        })
+            elif self.id == 810:
+                if len(data_list) == 2:
+                    hex_join = "".join(data_list[0:2])
+                    converted_hex = int(hex_join, 16)
+                    robothead_vehico = converted_hex
+                    return AnalyzerFrame('message_information', frame_start_time[0], frame_end_time[1], {
+                            'info': 'RobotHead_Vehico',
+                            'input_type': str(round(robothead_vehico, 3)) + "°",
+                        })
+                elif len(data_list) == 4:
+                    hex_join = "".join(data_list[2:4])
+                    converted_hex = int(hex_join, 16)
+                    speed_vehico = converted_hex * 0.01
+                    return AnalyzerFrame('message_information', frame_start_time[2], frame_end_time[3], {
+                            'info': 'Speed_Vehico',
+                            'input_type': str(round(speed_vehico, 3)) + "km/h",
+                        })
+                elif len(data_list) == 5:
+                    hex_join = "".join(data_list[4])
+                    converted_hex = int(hex_join, 16)
+                    pos_qual_vehico = converted_hex
+                    return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
+                            'info': 'Position Quality Vehico',
+                            'input_type': str(pos_qual_vehico),
+                        })
+                elif len(data_list) == 6:
+                    hex_join = "".join(data_list[5])
+                    converted_hex = int(hex_join, 16)
+                    solution_type_vehico = converted_hex
+                    return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
+                            'info': 'Solution Type Vehico',
+                            'input_type': str(solution_type_vehico),
+                        })
+                elif len(data_list) == 8:
+                    hex_join = "".join(data_list[6:])
+                    converted_hex = int(hex_join, 16)
+                    last_start_time = frame_start_time[6]
+                    last_end_time = frame_end_time[7]
+                    data_list = []
+                    frame_start_time = []
+                    frame_end_time = []
+                    return AnalyzerFrame('message_information', last_start_time, last_end_time, {
+                            'info': 'None',
+                            'input_type': str(converted_hex),
                         })
             else:
                 self.id = None
