@@ -4,37 +4,50 @@
 from saleae.analyzers import HighLevelAnalyzer, AnalyzerFrame, StringSetting, NumberSetting, ChoicesSetting
 from saleae.data import GraphTimeDelta
 import datetime
+import struct
 
+def most_common(lst):
+    new_list = [round(x) for x in lst]
+    return max(new_list, key=new_list.count)
 
 data_list = []
 frame_start_time = []
 frame_end_time = []
+first_301 = False
+delay_ms = []
+undelay_utc = []
 # High level analyzers must subclass the HighLevelAnalyzer class.
 class Hla(HighLevelAnalyzer):
     temp_frame = None
     result_types = {
         'message_information': {
-            'format': 'Info: {{data.info}}, Value: {{data.input_type}}',
+            'format': '{{data.info}}, {{data.input_type}}',
         },
         'error': {
             'format': 'Error!'
         }
     }
-
+    
     def __init__(self):
         pass
 
     def decode(self, frame: AnalyzerFrame):
-        global data_list, frame_start_time, frame_end_time
+        global data_list, frame_start_time, frame_end_time, first_301, delay_ms, UTCTime
         if frame.type == 'identifier_field':
             self.id = frame.data['identifier']
+            if self.id == 769 and first_301 == False:
+                self.id301_start_time = frame.start_time
+                first_301 = True
+            elif self.id == 771:
+                self.id303_start_time = frame.start_time
+            if self.id == 769 and first_301 == True:
+                self.last301 = frame.start_time
             return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
                 'info': 'ID',
                 'input_type': hex(self.id),
             })
         # Actual data conversion
         if frame.type == "can_error":
-            print("error frame")
             self.id = None
             data_list = []
             frame_start_time = []
@@ -148,21 +161,37 @@ class Hla(HighLevelAnalyzer):
                             'input_type': bit_info,
                         })
                 elif len(data_list) == 8:
-                    if data_list[7] == "01":
-                        status_info = "No additional information"
-                    elif data_list[7] == "05":
-                        status_info = "Brake test started"
-                    elif data_list[7] == "09":
-                        status_info = "Brake Trigger active"
-                    elif data_list[7] == "11":
-                        status_info = "DGPS active"
-                    elif data_list[7] == "21":
-                        status_info = "Dual lock"
-                    else:
-                        status_info = "Not stated"
+                    val = bin(int(("0x" + data_list[7]), 16))
+                    leading_zero = "0" * (10 - len(val))
+                    bin_val = leading_zero + val[2:]
+                    info = []
+                    if bin_val[3] == "1":
+                        info.append("Brake test started")
+                    if bin_val[4] == "1":
+                        info.append("Brake trigger active")
+                    if bin_val[5] == "1":
+                        info.append("DGPS Active")
+                    if bin_val[6] == "1":
+                        info.append("Dual Antenna Active")
+                    if bin_val[3] == "0" and bin_val[4] == "0" and bin_val[5] == "0" and bin_val[6] == "0":
+                        info.append("No additional information")
                     data_list = []
+                    if ("Brake test started" in info or "Brake trigger active" in info) and first_301 == True and bin_val[-1] == "1":
+                        start_to_end = frame.end_time - self.id301_start_time
+                        start_to_trigger_difference = frame.end_time - self.last301
+                        frame_time = str(start_to_end - start_to_trigger_difference)
+                        new_time = frame_time.split(" ").pop(1)
+                        time = float((new_time.split("millisecond=").pop(1))[:-1])
+                        if time > 18:
+                            delay_ms.append(float(time))
+                            print(f"\nNumber of delays counted - {len(delay_ms)}")
+                            print(f"Average delay - {sum(delay_ms) / len(delay_ms)}ms")
+                            mode = most_common(delay_ms)
+                            print(f"Anomalous data - {[x for x in delay_ms if mode - 1 >= x or x >= mode + 1] if len([x for x in delay_ms if mode - 1 >= x or x >= mode + 1]) is not 0 else None}")
+                        first_301 = False
                     frame_start_time = []
                     frame_end_time = []
+                    status_info = ", ".join(info)
                     return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
                             'info': 'Status information',
                             'input_type': status_info,
@@ -351,7 +380,8 @@ class Hla(HighLevelAnalyzer):
                 if len(data_list) == 6:
                     hex_join = "".join(data_list[0:6])
                     converted_hex = int(hex_join, 16)
-                    long_48bit = converted_hex / 10000000 
+                    additional_hex = int('ffff00000000', 16)
+                    long_48bit = (additional_hex - converted_hex) / 10000000
                     return AnalyzerFrame('message_information', frame_start_time[0], frame_end_time[5], {
                             'info': 'Longitude 48bit',
                             'input_type': str(long_48bit),
@@ -390,6 +420,15 @@ class Hla(HighLevelAnalyzer):
                     hex_join = "".join(data_list[3:6])
                     converted_hex = int(hex_join, 16)
                     tsm_robot_nav = datetime.timedelta(seconds=(int(converted_hex) * 0.01))
+                    undelay_utc.append(tsm_robot_nav)
+                    try:
+                        if (UTCTime + datetime.timedelta(seconds=18)) in undelay_utc:
+                            undelay_utc.remove((UTCTime + datetime.timedelta(seconds=18)))
+                            print(f"Time since midnight delay - {len(undelay_utc)} samples")
+                        elif (UTCTime + datetime.timedelta(seconds=18)) > undelay_utc[0]:
+                            undelay_utc.clear()
+                    except:
+                        pass
                     return AnalyzerFrame('message_information', frame_start_time[3], frame_end_time[5], {
                             'info': 'UTC robot nav',
                             'input_type': str(tsm_robot_nav),
@@ -410,16 +449,16 @@ class Hla(HighLevelAnalyzer):
             elif self.id == 809:
                 if len(data_list) == 4:
                     hex_join = "".join(data_list[0:4])
-                    converted_hex = int(hex_join, 16)
-                    x_pos = converted_hex
+                    packed = struct.unpack('>f', bytes.fromhex(hex_join))
+                    x_pos = packed[0]
                     return AnalyzerFrame('message_information', frame_start_time[0], frame_end_time[3], {
                             'info': 'X position',
-                            'input_type': str(round(x_pos, 3)) + "m",
+                            'input_type': str(round(x_pos, 9)) + "m",
                         })
                 elif len(data_list) == 8:
                     hex_join = "".join(data_list[4:])
-                    converted_hex = int(hex_join, 16)
-                    y_pos = converted_hex
+                    packed = struct.unpack('>f', bytes.fromhex(hex_join))
+                    y_pos = packed[0]
                     last_start_time = frame_start_time[4]
                     last_end_time = frame_end_time[7]
                     data_list = []
@@ -427,13 +466,13 @@ class Hla(HighLevelAnalyzer):
                     frame_end_time = []
                     return AnalyzerFrame('message_information', last_start_time, last_end_time, {
                             'info': 'Y position',
-                            'input_type': str(round(y_pos, 3)) + "m",
+                            'input_type': str(round(y_pos, 9)) + "m",
                         })
             elif self.id == 810:
                 if len(data_list) == 2:
                     hex_join = "".join(data_list[0:2])
                     converted_hex = int(hex_join, 16)
-                    robothead_vehico = converted_hex
+                    robothead_vehico = converted_hex * 0.01
                     return AnalyzerFrame('message_information', frame_start_time[0], frame_end_time[1], {
                             'info': 'RobotHead_Vehico',
                             'input_type': str(round(robothead_vehico, 3)) + "°",
@@ -471,7 +510,7 @@ class Hla(HighLevelAnalyzer):
                     frame_start_time = []
                     frame_end_time = []
                     return AnalyzerFrame('message_information', last_start_time, last_end_time, {
-                            'info': 'None',
+                            'info': 'N/A',
                             'input_type': str(converted_hex),
                         })
             else:
@@ -479,7 +518,7 @@ class Hla(HighLevelAnalyzer):
                 data_list = []
                 frame_start_time = []
                 frame_end_time = []
-                print(self.id, data_list, frame_start_time, frame_end_time)
                 return AnalyzerFrame('message_information', frame.start_time, frame.end_time, {
                     'error': 'Error!'
                 })
+
