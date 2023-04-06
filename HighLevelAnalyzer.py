@@ -10,11 +10,6 @@ def most_common(lst):
     new_list = [round(x) for x in lst]
     return max(new_list, key=new_list.count)
 
-# self.data_list = []
-# self.frame_start_time = []
-# self.frame_end_time = []
-# first_301 = False
-
 # High level analyzers must subclass the HighLevelAnalyzer class.
 class Hla(HighLevelAnalyzer):
     temp_frame = None
@@ -37,6 +32,8 @@ class Hla(HighLevelAnalyzer):
         self.data_list = []
         self.frame_start_time = []
         self.frame_end_time = []
+        self.previous_speed = None
+        self.speed_count = 1
 
     def decode(self, frame: AnalyzerFrame):
         global UTCTime, speed
@@ -398,14 +395,33 @@ class Hla(HighLevelAnalyzer):
                     converted_hex = int(hex_join, 16)
                     speed_robot_nav = converted_hex * 0.01 * 1.852
                     self.speed_robot.append(speed_robot_nav)
-                    try: 
-                        if ((speed - 0.01) <= speed or (speed + 0.01) >= speed) in self.speed_robot:
-                            self.speed_robot.remove(speed)
-                            print(f"Speed delay - {len(self.speed_robot)} samples")
-                        elif speed > self.speed_robot[0]:
-                            self.speed_robot.clear()
+                    try:
+                        if speed == self.speed_robot[0] and speed != self.previous_speed:
+                            del self.speed_robot[0]
+                            if self.speed_count == len(self.speed_robot):
+                                print(f"Speed delay - {len(self.speed_robot)} samples")
+                                self.speed_count = 1
+                            elif len(self.speed_robot) == 0:
+                                if self.speed_count == 5:
+                                    print(f"Speed delay - {len(self.speed_robot)} samples")
+                                    self.speed_count = 1
+                                else:
+                                    self.speed_count += 1
+                            else:
+                                self.speed_count += 1
+                        else:
+                            if speed > self.previous_speed:
+                                if speed > self.speed_robot[0]:
+                                    self.speed_robot.clear()
+                            elif speed < self.previous_speed:
+                                if speed < self.speed_robot[0]:
+                                    self.speed_robot.clear()
+                            else:
+                                if speed == self.speed_robot[0]:
+                                    self.speed_robot.clear()
                     except:
                         pass
+                    self.previous_speed = speed
                     last_start_time = self.frame_start_time[6]
                     last_end_time = self.frame_end_time[7]
                     self.data_list = []
@@ -443,6 +459,12 @@ class Hla(HighLevelAnalyzer):
                             if self.utc_count == len(self.undelay_utc):
                                 print(f"Time since midnight delay - {len(self.undelay_utc)} samples")
                                 self.utc_count = 1
+                            elif len(self.undelay_utc) == 0:
+                                if self.utc_count == 5:
+                                    print(f"Time since midnight delay - {len(self.undelay_utc)} samples")
+                                    self.utc_count = 1
+                                else: 
+                                    self.utc_count += 1
                             else:
                                 self.utc_count += 1
                         elif (UTCTime + datetime.timedelta(seconds=18)) > self.undelay_utc[0]:
