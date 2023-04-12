@@ -27,13 +27,13 @@ class Hla(HighLevelAnalyzer):
         self.undelay_utc = []
         self.speed_robot = []
         self.speed_vehico = []
-        self.utc_count = 1
         self.first_301 = False
         self.data_list = []
         self.frame_start_time = []
         self.frame_end_time = []
         self.previous_speed = None
-        self.speed_count = 1
+        # self.last_utc = 0
+        self.last_utc = False
 
     def decode(self, frame: AnalyzerFrame):
         global UTCTime, speed
@@ -398,17 +398,17 @@ class Hla(HighLevelAnalyzer):
                     try:
                         if speed == self.speed_robot[0] and speed != self.previous_speed:
                             del self.speed_robot[0]
-                            if self.speed_count == len(self.speed_robot):
-                                print(f"Speed delay - {len(self.speed_robot)} samples")
-                                self.speed_count = 1
-                            elif len(self.speed_robot) == 0:
-                                if self.speed_count == 5:
-                                    print(f"Speed delay - {len(self.speed_robot)} samples")
-                                    self.speed_count = 1
-                                else:
-                                    self.speed_count += 1
-                            else:
-                                self.speed_count += 1
+                            # if self.speed_count == len(self.speed_robot):
+                            #     print(f"Speed delay - {len(self.speed_robot)} samples")
+                            #     self.speed_count = 1
+                            # elif len(self.speed_robot) == 0:
+                            #     if self.speed_count == 5:
+                            #         print(f"Speed delay - {len(self.speed_robot)} samples")
+                            #         self.speed_count = 1
+                            #     else:
+                            #         self.speed_count += 1
+                            # else:
+                            #     self.speed_count += 1
                         else:
                             if speed > self.previous_speed:
                                 if speed > self.speed_robot[0]:
@@ -456,18 +456,18 @@ class Hla(HighLevelAnalyzer):
                     try:
                         if (UTCTime + datetime.timedelta(seconds=18)) in self.undelay_utc:
                             self.undelay_utc.remove((UTCTime + datetime.timedelta(seconds=18)))
-                            if self.utc_count == len(self.undelay_utc):
+                            # if (UTCTime + datetime.timedelta(seconds=18)) < self.last_utc:
+                            if self.last_utc == True:
                                 print(f"Time since midnight delay - {len(self.undelay_utc)} samples")
-                                self.utc_count = 1
+                                print(f"Speed delay               - {len(self.speed_robot)} samples")
+                                self.last_utc = False
                             elif len(self.undelay_utc) == 0:
-                                if self.utc_count == 5:
+                                if (UTCTime + datetime.timedelta(seconds=18)) > self.last_utc:
                                     print(f"Time since midnight delay - {len(self.undelay_utc)} samples")
-                                    self.utc_count = 1
-                                else: 
-                                    self.utc_count += 1
-                            else:
-                                self.utc_count += 1
+                                    print(f"Speed delay               - {len(self.speed_robot)} samples")
                         elif (UTCTime + datetime.timedelta(seconds=18)) > self.undelay_utc[0]:
+                            # self.last_utc = self.undelay_utc[(len(self.undelay_utc) - 2)]
+                            self.last_utc = True
                             self.undelay_utc.clear()
                     except:
                         pass
