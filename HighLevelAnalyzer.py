@@ -555,6 +555,28 @@ class Hla(HighLevelAnalyzer):
                             'info': 'N/A',
                             'input_type': str(converted_hex),
                         })
+            elif self.id == 156:
+                if len(self.data_list) == 4:
+                    self.data_list.reverse()
+                    hex_join = "".join(self.data_list[0:4])
+                    converted_hex = int(hex_join, 16)
+                    stahle_UTC = datetime.timedelta(seconds=(int(converted_hex) * 0.01))
+                    return AnalyzerFrame('message_information', self.frame_start_time[0], self.frame_end_time[3], {
+                            'info': 'Stahle UTC',
+                            'input_type': str(stahle_UTC),
+                        })
+                elif len(self.data_list) == 8:
+                    self.data_list.clear()
+                    self.frame_start_time.clear()
+                    self.frame_end_time.clear()
+                # elif len(self.data_list) == 8:
+                #     self.data_list = []
+                #     self.frame_start_time = []
+                #     self.frame_end_time = []
+                #     return AnalyzerFrame('message_information', self.frame_start_time[4], self.frame_end_time[7], {
+                #             'info': 'N/A',
+                #             'input_type': str(converted_hex),
+                #         })
             else:
                 self.id = None
                 self.data_list = []
